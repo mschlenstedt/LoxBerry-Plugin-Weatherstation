@@ -1,39 +1,110 @@
 {
-   "actors" : [],
-   "sensors" : [],
-   "lcd" : {
-      "active" : "0",
-      "cycletime" : "3",
-      "displaytimeout" : "120",
-      "external_values" : [
-         {
-            "address" : "value1",
-            "lcd_unit" : "",
-            "name" : ""
-         },
-         {
-            "address" : "value2",
-            "lcd_unit" : "",
-            "name" : ""
-         },
-         {
-            "address" : "value3",
-            "lcd_unit" : "",
-            "name" : ""
-         },
-         {
-            "address" : "value4",
-            "lcd_unit" : "",
-            "name" : ""
-         },
-         {
-            "address" : "value5",
-            "lcd_unit" : "",
-            "name" : ""
-         }
-      ]
+   "sensors" : {
+      "temp" : {
+         "topic" : "sensor/temp",
+         "name1" : "tempf"
+      },
+      "humidity" : {
+         "topic" : "sensor/humidity",
+         "name1" : "humidity"
+      },
+      "pressure" : {
+         "topic" : "sensor/pressure",
+         "height" : "113.35",
+         "name1" : "baromabsin",
+         "name2" : "baromrelin"
+      },
+      "illuminance" : {
+         "topic" : "sensor/illuminance",
+         "calc_sr" : "0",
+         "name1" : "brightness",
+         "name2" : "solarradiation"
+      },
+      "twilight" : {
+         "topic" : "sensor/twilight",
+         "max" : "32767",
+         "name1" : "twilight"
+      },
+      "solarradiation" : {
+         "topic" : "sensor/solarradiation",
+         "max" : "558",
+         "offset" : "-0.0003",
+         "name1" : "solarradiation"
+      },
+      "uv" : {
+         "topic" : "sensor/uv",
+         "name1" : "uv"
+      },
+      "lightning_distance" : {
+         "topic" : "sensor/lightning_distance",
+         "name1" : "lightning"
+      },
+      "lightning_last" : {
+         "topic" : "sensor/lightning_last",
+         "name1" : "lightning_time"
+      },
+      "lightning_number" : {
+         "topic" : "sensor/lightning_number",
+         "name1" : "lightning_num",
+         "name2" : "eventlightning_num",
+         "name3" : "hourlylightning_num",
+         "name4" : "dailylightning_num",
+         "name5" : "weeklylightning_num",
+         "name6" : "monthlylightning_num",
+         "name7" : "yearlylightning_num",
+         "name8" : "totallightning_num",
+         "name9" : "24hlightning_num"
+      },
+      "windspeed" : {
+         "topic" : "sensor/windspeed",
+         "name1" : "windspeedmph",
+         "name2" : "windgustmph",
+         "name3" : "windspdmph_avg2m",
+         "name4" : "windspdmph_avg10m"
+      },
+      "winddir" : {
+         "topic" : "sensor/winddir",
+         "name1" : "winddir",
+         "name2" : "winddir_avg2m",
+         "name3" : "winddir_avg10m",
+         "converttable" : {
+            "0.0" : "0",
+            "0.1" : "0",
+            "0.4" : "45",
+            "0.5" : "45",
+            "0.9" : "90",
+            "1.0" : "90",
+            "1.3" : "135",
+            "1.4" : "135",
+            "1.8" : "180",
+            "1.9" : "180",
+            "2.2" : "225",
+            "2.3" : "225",
+            "2.7" : "270",
+            "2.8" : "270",
+            "3.1" : "315",
+            "3.2" : "315"
+        }
+      },
+      "rainstate" : {
+         "topic" : "input/rain",
+         "name1" : "srain"
+      },
+      "rainrate" : {
+         "topic" : "sensor/rainrate",
+         "name1" : "rainratein",
+         "name2" : "eventrainin",
+         "name3" : "hourlyrainin",
+         "name4" : "dailyrainin",
+         "name5" : "weeklyrainin",
+         "name6" : "monthlyrainin",
+         "name7" : "yearlyrainin",
+         "name8" : "totalrainin",
+         "name9" : "24hrainin"
+      }
    },
-   "statuscycle" : "3600",
-   "topic" : "poolmanager",
-   "valuecycle" : "5"
+   "topic_sensors" : "weatherstation",
+   "ecowittserver" : "http://192.168.3.152",
+   "ecowittport" : "8080",
+   "ecowittinterval" : "5"
 }

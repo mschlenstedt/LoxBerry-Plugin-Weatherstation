@@ -27,11 +27,12 @@ sensorvalues = dict()
 sensors = dict()
 pconfig = dict()
 mqttconfig = dict()
-windspeed_avg10m = list()
-winddir_avg10m = list()
 windspeed_avg2m = list()
+windspeed_avg10m = list()
 winddir_avg2m = list()
+winddir_avg10m = list()
 historydata = dict()
+data = dict()
 lastsend=0
 
 lbpconfigdir = os.popen("perl -e 'use LoxBerry::System; print $lbpconfigdir; exit;'").read()
@@ -61,11 +62,10 @@ def readconfig():
     try:
         with open(lbpconfigdir + '/plugin.json') as f:
             global pconfig
-            global sensorvalues
-            global ecowitt
             pconfig = json.load(f)
         # Parse sensors
         for item in pconfig['sensors']:
+            global sensors
             sensors[item] = pconfig['sensors'][item]
     except:
         log.critical("Cannot read plugin configuration")
@@ -92,12 +92,35 @@ def readhistory():
     historydata.setdefault('rain', {}).setdefault('monthly', {}).setdefault('last',0)
     historydata.setdefault('rain', {}).setdefault('yearly', {})
     historydata.setdefault('rain', {}).setdefault('24h', {})
+    historydata.setdefault('rain', {}).setdefault('1h', {})
+    historydata.setdefault('lightning', {}).setdefault('offset',0)
+    historydata.setdefault('lightning', {}).setdefault('event', {}).setdefault('amount',0)
+    historydata.setdefault('lightning', {}).setdefault('event', {}).setdefault('last',0)
+    historydata.setdefault('lightning', {}).setdefault('hourly', {}).setdefault('amount',0)
+    historydata.setdefault('lightning', {}).setdefault('hourly', {}).setdefault('last',0)
+    historydata.setdefault('lightning', {}).setdefault('daily', {}).setdefault('amount',0)
+    historydata.setdefault('lightning', {}).setdefault('daily', {}).setdefault('last',0)
+    historydata.setdefault('lightning', {}).setdefault('weekly', {}).setdefault('amount',0)
+    historydata.setdefault('lightning', {}).setdefault('weekly', {}).setdefault('last',0)
+    historydata.setdefault('lightning', {}).setdefault('monthly', {}).setdefault('amount',0)
+    historydata.setdefault('lightning', {}).setdefault('monthly', {}).setdefault('last',0)
+    historydata.setdefault('lightning', {}).setdefault('yearly', {})
+    historydata.setdefault('lightning', {}).setdefault('24h', {})
+    historydata.setdefault('lightning', {}).setdefault('1h', {})
 
 def exit_handler(a="", b=""):
     # Close MQTT
     client.loop_stop()
     log.info("MQTT: Disconnecting from Broker.")
     client.disconnect()
+    # Write history data
+    try:
+        # Serializing json
+        json_object = json.dumps(historydata, indent=4)
+        with open(lbpdatadir + '/history.json', 'w') as f:
+            f.write(json_object)
+    except:
+        log.critical("Cannot save history data")
     # close the log
     if str(logdbkey) != "":
         logging.shutdown()
@@ -177,7 +200,7 @@ if not isinstance(numeric_loglevel, int):
     raise ValueError('Invalid log level: %s' % loglevel)
 
 if str(logfile) == "":
-    logfile = str(lbplogdir) + "/" + datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3] + "_lcd_display.log"
+    logfile = str(lbplogdir) + "/" + datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3] + "_lbws-gateway.log"
 
 log = logging.getLogger()
 fileHandler = logging.FileHandler(logfile)
@@ -193,12 +216,8 @@ log.addHandler(fileHandler)
 
 # Logging Starting message
 log.setLevel(logging.INFO)
-log.info("Starting Logfile for weatherstation gateway. The Loglevel is %s" % loglevel.upper())
+log.info("Starting Logfile for lbws-gateway. The Loglevel is %s" % loglevel.upper())
 log.setLevel(numeric_loglevel)
-
-#log.debug("Environment:")
-#for k, v in os.environ.items():
-#    log.debug(f'{k}={v}')
 
 # Read MQTT config
 mqttconfig['server'] = os.popen("perl -e 'use LoxBerry::IO; my $mqttcred = LoxBerry::IO::mqtt_connectiondetails(); print $mqttcred->{brokerhost}; exit'").read()
@@ -252,8 +271,9 @@ signal.signal(signal.SIGINT, exit_handler)
 
 # Create Default values
 # Passkey (md5 from Mac address)
-macaddr = os.popen("cat /sys/class/net/`ip route | grep default | awk '{print $NF}'`/address | awk '{print toupper($1)}'").read()
+macaddr = os.popen("cat /sys/class/net/`ip route | grep default | awk '{print $NF}'`/address | awk '{print toupper($1)}'").read().strip()
 sensorvalues['PASSKEY'] = hashlib.md5(macaddr.upper().encode()).hexdigest().upper()
+sensorvalues['mac'] = str(macaddr)
 # Statriontype and Model
 sensorvalues['stationtype'] = "LOXBERRY_V" + os.popen("perl -e 'use LoxBerry::System; print LoxBerry::System::lbversion(); exit;'").read()
 sensorvalues['model'] = "LOXBERRY_WEATHERSTATION_V" + os.popen("perl -e 'use LoxBerry::System; print LoxBerry::System::pluginversion(); exit;'").read()
@@ -276,17 +296,18 @@ while True:
         # Check for new measurement
         for item in sensors:
             if sensors[item]['topic'] in message.topic:
-                data = dict()
+                data.setdefault(item, {})
+                data[item].clear()
                 log.debug("Received Measurement " + item + " (Original): " + str(message.topic) + " " + str(message.payload.decode("utf-8")))
                 # Temperature
                 if item == "temp":
-                    data['1'] = ctof(float(message.payload),1)
+                    data[item]['1'] = ctof(float(message.payload),1)
                 # Humidity
                 elif item == "humidity":
-                    data['1'] = round(float(message.payload),1)
+                    data[item]['1'] = round(float(message.payload),1)
                 # Pressure
                 elif item == "pressure":
-                    data['1'] = hpatoin(float(message.payload),3)
+                    data[item]['1'] = hpatoin(float(message.payload),3)
                     # Calculate relative pressure: https://www.bjoerns-techblog.de/2017/12/luftdruck-absolut-oder-relativ/
                     # https://www.wetterstationsforum.info/viewtopic.php?t=171#p1443
                     correction = 0
@@ -296,33 +317,34 @@ while True:
                                 correction = float(sensors[item]['height']) / 11
                             else:
                                correction = float(sensors[item]['height']) / 8
-                    data['2'] = hpatoin(float(message.payload) + correction,3)
+                    data[item]['2'] = hpatoin(float(message.payload) + correction,3)
                 # Illuminance
                 elif item == "illuminance":
-                    data['1'] = round(float(message.payload),1)
+                    data[item]['1'] = round(float(message.payload),1)
                     if int(sensors[item]['calc_sr']) > 0: # Calc SolarRadiation from Lux. 126.7 is the facotor Ecowitt uses
-                        data['2'] = round(float(data['1'])/126.7,2)    # https://www.extrica.com/article/21667/pdf
+                        data[item]['2'] = round(float(data['1'])/126.7,2)    # https://www.extrica.com/article/21667/pdf
                 # Twilight
                 elif item == "twilight":
-                    data['1'] = round(float(message.payload),1)
+                    data[item]['1'] = -9999
                     if 'max' in sensors[item]:
                         if float(sensors[item]['max']) > 0 and sensors[item]['max'] is not None:
-                            data['1'] = round( float(message.payload) / float(sensors[item]['max']) * 100,1)
+                            data[item]['1'] = round( float(message.payload) / float(sensors[item]['max']) * 100,1)
                 # UV Index
                 elif item == "uv":
-                    data['1'] = int(round(float(message.payload) / 0.1,0))
+                    data[item]['1'] = int(round(float(message.payload) / 0.1,0))
                 # Windspeed
                 elif item == "windspeed":
-                    data['1'] = mstomph(float(message.payload),2)
+                    wind = mstomph(float(message.payload),2)
                     while len(windspeed_avg2m) > 39: # Interval 3 sec, 40 values
                         del windspeed_avg2m[0]
                     while len(windspeed_avg10m) > 199: # Interval 3 sec, 200 values
                         del windspeed_avg10m[0]
-                    windspeed_avg2m.append(float(data['1']))
-                    windspeed_avg10m.append(float(data['1']))
-                    data['2'] = max(windspeed_avg2m)
-                    data['3'] = round(np.mean(windspeed_avg2m),2)
-                    data['4'] = round(np.mean(windspeed_avg10m),2)
+                    windspeed_avg2m.append(wind)
+                    windspeed_avg10m.append(wind)
+                    data[item]['1'] = wind
+                    data[item]['2'] = max(windspeed_avg2m)
+                    data[item]['3'] = round(np.mean(windspeed_avg2m),2)
+                    data[item]['4'] = round(np.mean(windspeed_avg10m),2)
                 # Winddir
                 elif item == "winddir":
                     volt = round( float(message.payload),1 )
@@ -331,75 +353,141 @@ while True:
                     while len(winddir_avg10m) > 199: # Interval 3 sec, 200 values
                         del winddir_avg10m[0]
                     if str(volt) in sensors[item]['converttable']:
-                        data['1'] = sensors[item]['converttable'][str(volt)]
-                        winddir_avg2m.append(float(data['1']))
-                        winddir_avg10m.append(float(data['1']))
+                        data[item]['1'] = sensors[item]['converttable'][str(volt)]
+                        winddir_avg2m.append(float(data[item]['1']))
+                        winddir_avg10m.append(float(data[item]['1']))
                     else:
-                        data['1'] = -9999
+                        data[item]['1'] = -9999
                         if len(winddir_avg10m) > 0 and len(winddir_avg2m) > 0:
                             last = winddir_avg2m[-1]
                             winddir_avg2m.append(float(last))
                             last = winddir_avg10m[-1]
                             winddir_avg10m.append(float(last))
-                    data['2'] = avgwind(winddir_avg2m)
-                    data['3'] = avgwind(winddir_avg10m)
+                    data[item]['2'] = avgwind(winddir_avg2m)
+                    data[item]['3'] = avgwind(winddir_avg10m)
                 # Solar Radiation
                 elif item == "solarradiation":
-                    data['1'] = round(float(message.payload),1)
+                    value = float(message.payload)
+                    if 'offset' in sensors[item] and sensors[item]['offset'] is not None:
+                        value = value - float(sensors[item]['offset'])
+                    if float(value) < 0:
+                        value = 0
+                    data[item]['1'] = "-9999"
                     if 'max' in sensors[item]:
                         if float(sensors[item]['max']) > 0 and sensors[item]['max'] is not None:
-                            data['1'] = round( float(message.payload) / (float(sensors[item]['max']) / 1000) * 100,1)
+                            sr = round( (float(value) * 1000) / float(sensors[item]['max']) * 1000,1)
+                            if sr < 0.6:
+                                data[item]['1'] = 0
+                            else:
+                                data[item]['1'] = round( float(sr),1)
                 # Rain State
                 elif item == "rainstate":
-                    input = str(message.payload)
-                    if input == "ON":
-                        data['1'] = 1
+                    input = message.payload.decode("utf-8")
+                    if str(input) == "ON":
+                        data[item]['1'] = 1
                     else:
-                        data['1'] = 0
+                        data[item]['1'] = 0
                 # Rain Rate
                 elif item == "rainrate":
                     x = datetime.datetime.now()
-                    data['1'] = mmtoin(float(message.payload) * 6,3) # Rate is mm/10m, so factor 6
-                    amount = mmtoin(float(message.payload),3) # Amount in the last 10 minutes
-                    if float(data['1']) >= 0.03937: # Calculate Rain Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
-                        historydata['rain']['event']['amount'] = round(float(historydata['rain']['event']['amount']) + amount,3)
+                    data[item]['1'] = mmtoin(float(message.payload) * 6,3) # Rate is mm/10m, so factor 6
+                    amount = mmtoin(float(message.payload),1) # Amount in the last 10 minutes
+                    if float(data[item]['1']) >= 0.03937: # Calculate Rain Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
+                        historydata['rain']['event']['amount'] = round(float(historydata['rain']['event']['amount']) + amount,1)
                         historydata['rain']['event']['last'] = str(x.timestamp())
-                    historydata['rain']['hourly']['amount'] = round(float(historydata['rain']['hourly']['amount']) + amount,3)
-                    historydata['rain']['daily']['amount'] = round(float(historydata['rain']['daily']['amount']) + amount,3)
-                    historydata['rain']['weekly']['amount'] = round(float(historydata['rain']['weekly']['amount']) + amount,3)
-                    historydata['rain']['monthly']['amount'] = round(float(historydata['rain']['monthly']['amount']) + amount,3)
+                    historydata['rain']['hourly']['amount'] = round(float(historydata['rain']['hourly']['amount']) + amount,1)
+                    historydata['rain']['daily']['amount'] = round(float(historydata['rain']['daily']['amount']) + amount,1)
+                    historydata['rain']['weekly']['amount'] = round(float(historydata['rain']['weekly']['amount']) + amount,1)
+                    historydata['rain']['monthly']['amount'] = round(float(historydata['rain']['monthly']['amount']) + amount,1)
                     historydata.setdefault('rain', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
-                    historydata['rain']['yearly'][x.strftime("%Y")] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]) + amount,3)
+                    historydata['rain']['yearly'][x.strftime("%Y")] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]) + amount,1)
                     historydata['rain']['hourly']['last'] = str(x.timestamp())
                     historydata['rain']['daily']['last'] = str(x.timestamp())
                     historydata['rain']['weekly']['last'] = str(x.timestamp())
                     historydata['rain']['monthly']['last'] = str(x.timestamp())
-                    data['2'] = historydata['rain']['event']['amount']
-                    data['3'] = historydata['rain']['hourly']['amount']
-                    data['4'] = historydata['rain']['daily']['amount']
-                    data['5'] = historydata['rain']['weekly']['amount']
-                    data['6'] = historydata['rain']['monthly']['amount']
-                    data['7'] = historydata['rain']['yearly'][x.strftime("%Y")]
-                    data['8'] = 0
+                    data[item]['2'] = round(float(historydata['rain']['event']['amount']),1)
+                    #data['3'] = round(float(historydata['rain']['hourly']['amount']),1)
+                    data[item]['4'] = round(float(historydata['rain']['daily']['amount']),1)
+                    data[item]['5'] = round(float(historydata['rain']['weekly']['amount']),1)
+                    data[item]['6'] = round(float(historydata['rain']['monthly']['amount']),1)
+                    data[item]['7'] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]),1)
+                    data[item]['8'] = 0
                     for year in historydata['rain']['yearly']:
-                        data['8'] = round(data['8'] + float(historydata['rain']['yearly'][year]),3)
+                        data[item]['8'] = round(data[item]['8'] + float(historydata['rain']['yearly'][year]),1)
                     thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+                    thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
                     historydata.setdefault('rain', {}).setdefault('24h', {}).setdefault(thishour,0)
                     historydata['rain']['24h'][thishour] = historydata['rain']['hourly']['amount']
-                    data['9'] = 0
+                    data[item]['9'] = 0
                     for hour in historydata['rain']['24h']:
-                        data['9'] = round(data['9'] + float(historydata['rain']['24h'][hour]),3)
-
-
-
+                        data[item]['9'] = round(data[item]['9'] + float(historydata['rain']['24h'][hour]),1)
+                    historydata.setdefault('rain', {}).setdefault('1h', {}).setdefault(thisminute,0)
+                    historydata['rain']['1h'][thisminute] = amount
+                    data[item]['3'] = 0
+                    for minute in historydata['rain']['1h']:
+                        data[item]['3'] = round(data[item]['3'] + float(historydata['rain']['1h'][minute]),1)
+                # Lightning Last
+                elif item == "lightning_last":
+                    try:
+                        x = datetime.datetime.utcfromtimestamp(float(message.payload)) # Convert to UTC
+                        data[item]['1'] = str( int(x.timestamp()) )
+                    except:
+                        data[item]['1'] = 0
+                # Lightning Distance
+                elif item == "lightning_distance":
+                    data[item]['1'] = round(float(message.payload),1)
+                # Lightning Number
+                elif item == "lightning_number":
+                    x = datetime.datetime.now()
+                    number = float(message.payload)
+                    if number < int(historydata['lightning']['offset']): # Seems plugin was restarted
+                        historydata['lightning']['offset'] = 0
+                    amount = number - int(historydata['lightning']['offset'])
+                    historydata['lightning']['offset'] = number
+                    historydata['lightning']['hourly']['amount'] = int(historydata['lightning']['hourly']['amount']) + amount
+                    historydata['lightning']['daily']['amount'] = int(historydata['lightning']['daily']['amount']) + amount
+                    historydata['lightning']['weekly']['amount'] = int(historydata['lightning']['weekly']['amount']) + amount
+                    historydata['lightning']['monthly']['amount'] = int(historydata['lightning']['monthly']['amount']) + amount
+                    historydata.setdefault('lightning', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
+                    historydata['lightning']['yearly'][x.strftime("%Y")] = int(historydata['lightning']['yearly'][x.strftime("%Y")]) + amount
+                    historydata['lightning']['hourly']['last'] = str(x.timestamp())
+                    historydata['lightning']['daily']['last'] = str(x.timestamp())
+                    historydata['lightning']['weekly']['last'] = str(x.timestamp())
+                    historydata['lightning']['monthly']['last'] = str(x.timestamp())
+                    data[item]['1'] = int(historydata['lightning']['daily']['amount'])
+                    data[item]['2'] = int(historydata['lightning']['event']['amount'])
+                    #data['3'] = int(historydata['lightning']['hourly']['amount'])
+                    data[item]['4'] = int(historydata['lightning']['daily']['amount'])
+                    data[item]['5'] = int(historydata['lightning']['weekly']['amount'])
+                    data[item]['6'] = int(historydata['lightning']['monthly']['amount'])
+                    data[item]['7'] = int(historydata['lightning']['yearly'][x.strftime("%Y")])
+                    data[item]['8'] = 0
+                    for year in historydata['lightning']['yearly']:
+                        data[item]['8'] = int(data[item]['8'] + int(historydata['lightning']['yearly'][year]))
+                    thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+                    thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+                    historydata.setdefault('lightning', {}).setdefault('24h', {}).setdefault(thishour,0)
+                    historydata['lightning']['24h'][thishour] = historydata['lightning']['hourly']['amount']
+                    data[item]['9'] = 0
+                    for hour in historydata['lightning']['24h']:
+                        data[item]['9'] = int(round(data[item]['9'] + float(historydata['lightning']['24h'][hour]),1))
+                    historydata.setdefault('lightning', {}).setdefault('1h', {}).setdefault(thisminute,0)
+                    historydata['lightning']['1h'][thisminute] = amount
+                    data[item]['3'] = 0
+                    for minute in historydata['lightning']['1h']:
+                        data[item]['3'] = int(round(data[item]['3'] + float(historydata['lightning']['1h'][minute]),1))
 
                 # Save new current data
-                for val in data:
-                    if 'name'+val in sensors[item] and data[val] is not None:
-                        sensorvalues[str(sensors[item]['name'+val])] = data[val]
-                        log.debug("Received Measurement " + item + " (Converted): " + str(sensors[item]['name'+val]) + " " + str(data[val]))
-                data.clear()
+                for val in data[item]:
+                    if 'name'+val in sensors[item] and data[item][val] is not None:
+                        sensorvalues[str(sensors[item]['name'+val])] = data[item][val]
+                        log.debug("Received Measurement " + item + " (Converted): " + str(sensors[item]['name'+val]) + " " + str(data[item][val]))
+                #data[item].clear()
                 log.debug("Stored History Data: " + str(historydata))
+                log.debug("Stored Windspeed AVG2m Data: " + str(windspeed_avg2m))
+                log.debug("Stored Windspeed AVG10m Data: " + str(windspeed_avg10m))
+                log.debug("Stored Winddir AVG2m Data: " + str(winddir_avg2m))
+                log.debug("Stored Winddir AVG10m Data: " + str(winddir_avg10m))
 
 
 
@@ -409,6 +497,7 @@ while True:
     now = datetime.datetime.now()
 
     # Reset / calculate some historical data
+    # Rain
     if float(now.timestamp()) > float(historydata['rain']['event']['last']) + 86400: # Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
         historydata['rain']['event']['amount'] = 0
     y = datetime.datetime.fromtimestamp(float(historydata['rain']['hourly']['last']))
@@ -423,15 +512,37 @@ while True:
     for hour in list(historydata['rain']['24h']): # 24h
         if float(now.timestamp()) > float(hour) + 86400:
             del historydata['rain']['24h'][hour]
+    for minute in list(historydata['rain']['1h']): # 1h
+        if float(now.timestamp()) > float(minute) + 3600:
+            del historydata['rain']['1h'][minute]
+    # Lightning
+    if float(now.timestamp()) > float(historydata['lightning']['event']['last']) + 86400: # Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
+        historydata['lightning']['event']['amount'] = 0
+    y = datetime.datetime.fromtimestamp(float(historydata['lightning']['hourly']['last']))
+    if now.strftime("%H") != y.strftime("%H"): # Hourly
+        historydata['lightning']['hourly']['amount'] = 0
+    if now.strftime("%j") != y.strftime("%j"): # Daily
+        historydata['lightning']['daily']['amount'] = 0
+    if now.strftime("%W") != y.strftime("%W"): # Weekly
+        historydata['lightning']['weekly']['amount'] = 0
+    if now.strftime("%m") != y.strftime("%m"): # Monthly
+        historydata['lightning']['monthly']['amount'] = 0
+    for hour in list(historydata['lightning']['24h']): # 24h
+        if float(now.timestamp()) > float(hour) + 86400:
+            del historydata['lightning']['24h'][hour]
+    for minute in list(historydata['lightning']['1h']): # 1h
+        if float(now.timestamp()) > float(minute) + 3600:
+            del historydata['lightning']['1h'][minute]
 
-    # Send data every 60 seconds
-    if float(now.timestamp()) > float(lastsend) + 5:
+    # Send data every x seconds
+    if float(now.timestamp()) > float(lastsend) + float(pconfig['ecowittinterval']):
         lastsend = float(now.timestamp())
-        #response = requests.get('http://ear.phantasoft.de/data/report/', params=sensorvalues) # Get works sometimes, but Ecowitt uses post
-        url = "http://192.168.3.152:8080/data/report/"
-        response = requests.post(url, data = sensorvalues)
-        log.debug("Response from Server: " + response.text)
-
-
+        sensorvalues['dateutc'] = str( datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") )
+        try:
+            url = pconfig['ecowittserver'] + ":" + pconfig['ecowittport'] + '/data/report/'
+            response = requests.post(url, data = sensorvalues)
+            log.debug("Response from Server: " + response.text)
+        except requests.exceptions.RequestException as e:
+            log.critical("Cannot send data to Ecowitt server! Error: " + str(e))
 
     time.sleep(0.1)
