@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 
-# Copyright 2019 Michael Schlenstedt, michael@loxberry.de
-#                Christian Fenzl, christian@loxberry.de
+# Copyright 2024 Michael Schlenstedt, michael@loxberry.de
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -69,19 +68,16 @@ if( $q->{ajax} ) {
 ##########################################################################
 
 } else {
-	
+
 	require LoxBerry::Web;
-	
-	# Create symbolic link to measurements
-	my $res = qx (ln -s /dev/shm/poolmanager-measurements.json $lbphtmlauthdir/measurements.json);
 
 	# Default is measurements_settings form
-	$q->{form} = "measurements" if !$q->{form};
+	$q->{form} = "sensors" if !$q->{form};
 
-	if ($q->{form} eq "atlas") {
-		my $templatefile = "$lbptemplatedir/atlas_settings.html";
+	if ($q->{form} eq "sensors") {
+		my $templatefile = "$lbptemplatedir/sensors_settings.html";
 		$template = LoxBerry::System::read_file($templatefile);
-		&form_atlas();
+		&form_sensors();
 	}
 	elsif ($q->{form} eq "logs") {
 		my $templatefile = "$lbptemplatedir/log_settings.html";
@@ -93,17 +89,12 @@ if( $q->{ajax} ) {
 		$template = LoxBerry::System::read_file($templatefile);
 		&form_settings();
 	}
-	elsif ($q->{form} eq "lcd") {
-		my $templatefile = "$lbptemplatedir/lcd_settings.html";
-		$template = LoxBerry::System::read_file($templatefile);
-		&form_lcd();
-	}
 	else {
-		my $templatefile = "$lbptemplatedir/measurements_settings.html";
+		my $templatefile = "$lbptemplatedir/sensors_settings.html";
 		$template = LoxBerry::System::read_file($templatefile);
-		&form_measurements();
-       	}
-	
+		&form_sensors();
+	}
+
 }
 
 # Print the form out
@@ -115,26 +106,13 @@ exit;
 # Form: Atlas
 ##########################################################################
 
-sub form_atlas
+sub form_sensors
 {
 	# Prepare template
 	&preparetemplate();
 
 	return();
 }
-
-##########################################################################
-# Form: Calibration
-##########################################################################
-
-sub form_measurements
-{
-	# Prepare template
-	&preparetemplate();
-
-	return();
-}
-
 
 ##########################################################################
 # Form: Settings
@@ -147,20 +125,6 @@ sub form_settings
 
 	return();
 }
-
-
-##########################################################################
-# Form: LCD
-##########################################################################
-
-sub form_lcd
-{
-	# Prepare template
-	&preparetemplate();
-
-	return();
-}
-
 
 ##########################################################################
 # Form: Log
@@ -201,18 +165,10 @@ sub preparetemplate
 	# Navbar
 	our %navbar;
 
-	$navbar{10}{Name} = "$L{'COMMON.LABEL_MEASUREMENTS'}";
-	$navbar{10}{URL} = 'index.cgi?form=measurements';
-	$navbar{10}{active} = 1 if $q->{form} eq "measurements";
+	$navbar{20}{Name} = "$L{'COMMON.LABEL_SENSORS'}";
+	$navbar{20}{URL} = 'index.cgi?form=sensors';
+	$navbar{20}{active} = 1 if $q->{form} eq "sensors";
 
-	$navbar{20}{Name} = "$L{'COMMON.LABEL_ATLAS'}";
-	$navbar{20}{URL} = 'index.cgi?form=atlas';
-	$navbar{20}{active} = 1 if $q->{form} eq "atlas";
-
-	$navbar{25}{Name} = "$L{'COMMON.LABEL_LCD'}";
-	$navbar{25}{URL} = 'index.cgi?form=lcd';
-	$navbar{25}{active} = 1 if $q->{form} eq "lcd";
-	
 	$navbar{30}{Name} = "$L{'COMMON.LABEL_SETTINGS'}";
 	$navbar{30}{URL} = 'index.cgi?form=settings';
 	$navbar{30}{active} = 1 if $q->{form} eq "settings";
@@ -228,9 +184,9 @@ sub printtemplate
 {
 
 	# Print out Template
-	LoxBerry::Web::lbheader($L{'COMMON.LABEL_PLUGINTITLE'} . " V$version", "https://wiki.loxberry.de/plugins/loxberry_poolmanager/start", "");
+	LoxBerry::Web::lbheader($L{'COMMON.LABEL_PLUGINTITLE'} . " V$version", "https://wiki.loxberry.de/plugins/lbweatherstation/start", "");
 	# Print your plugins notifications with name daemon.
-	print LoxBerry::Log::get_notifications_html($lbpplugindir, 'PoolManager');
+	print LoxBerry::Log::get_notifications_html($lbpplugindir, 'LoxBerryWeatherStation');
 	print $templateout->output();
 	LoxBerry::Web::lbfooter();
 	

@@ -89,8 +89,8 @@ elsif ( $action eq "check" ) {
 
 else {
 
-	LOGERR "No valid action specified. action=start|stop|restart|check is required. Exiting.";
-	print "No valid action specified. action=start|stop|restart|check is required. Exiting.\n";
+	LOGERR "No valid action specified. --action=start|stop|restart|check is required. Exiting.";
+	print "No valid action specified. --action=start|stop|restart|check is required. Exiting.\n";
 	exit(1);
 
 }
@@ -122,7 +122,7 @@ sub start
 	}
 
 	# Logfile
-	my $lbweatherstationlog = LoxBerry::Log->new (  name => "lbweatherstation-gateway",
+	my $lbweatherstationlog = LoxBerry::Log->new (  name => "lbws-gateway",
 		package => 'lbweatherstation',
 		logdir => "$lbplogdir",
 		addtime => 1,

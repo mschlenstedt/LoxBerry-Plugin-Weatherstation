@@ -331,7 +331,7 @@ while True:
                             data[item]['1'] = round( float(message.payload) / float(sensors[item]['max']) * 100,1)
                 # UV Index
                 elif item == "uv":
-                    data[item]['1'] = int(round(float(message.payload) / 0.1,0))
+                    data[item]['1'] = round(float(message.payload) / 0.1,1)
                 # Windspeed
                 elif item == "windspeed":
                     wind = mstomph(float(message.payload),2)
