@@ -72,6 +72,7 @@ def readconfig():
         sys.exit()
 
 def readhistory():
+    global historydata
     file = lbpdatadir + '/history.json'
     try:
         with open(file) as f:
@@ -160,6 +161,84 @@ def avgwind(d):                                          # get avg from list
       cosSum += cos(radians(d[i]));
   a = round((degrees(atan2(sinSum, cosSum)) + 360) % 360,1)
   return a
+
+def rainstats(x, rainrate, amount):                       # Create rain stats
+  global historydata
+  ret = dict()
+  thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  if float(rainrate) >= 0.03937: # Calculate Rain Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
+      historydata['rain']['event']['amount'] = round(float(historydata['rain']['event']['amount']) + amount,3)
+      historydata['rain']['event']['last'] = str(x.timestamp())
+  historydata['rain']['hourly']['amount'] = round(float(historydata['rain']['hourly']['amount']) + amount,3)
+  historydata['rain']['daily']['amount'] = round(float(historydata['rain']['daily']['amount']) + amount,3)
+  historydata['rain']['weekly']['amount'] = round(float(historydata['rain']['weekly']['amount']) + amount,3)
+  historydata['rain']['monthly']['amount'] = round(float(historydata['rain']['monthly']['amount']) + amount,3)
+  historydata.setdefault('rain', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
+  historydata['rain']['yearly'][x.strftime("%Y")] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]) + amount,3)
+  historydata['rain']['hourly']['last'] = str(x.timestamp())
+  historydata['rain']['daily']['last'] = str(x.timestamp())
+  historydata['rain']['weekly']['last'] = str(x.timestamp())
+  historydata['rain']['monthly']['last'] = str(x.timestamp())
+  ret['1'] = rainrate
+  ret['2'] = round(float(historydata['rain']['event']['amount']),3)
+  ret['3'] = 0
+  for minute in historydata['rain']['1h']:
+      ret['3'] = round(ret['3'] + float(historydata['rain']['1h'][minute]),3)
+  ret['4'] = round(float(historydata['rain']['daily']['amount']),3)
+  ret['5'] = round(float(historydata['rain']['weekly']['amount']),3)
+  ret['6'] = round(float(historydata['rain']['monthly']['amount']),3)
+  ret['7'] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]),3)
+  ret['8'] = 0
+  for year in historydata['rain']['yearly']:
+      ret['8'] = round(ret['8'] + float(historydata['rain']['yearly'][year]),3)
+  historydata.setdefault('rain', {}).setdefault('24h', {}).setdefault(thishour,0)
+  historydata['rain']['24h'][thishour] = historydata['rain']['hourly']['amount']
+  ret['9'] = 0
+  for hour in historydata['rain']['24h']:
+      ret['9'] = round(ret['9'] + float(historydata['rain']['24h'][hour]),3)
+  historydata.setdefault('rain', {}).setdefault('1h', {}).setdefault(thisminute,0)
+  historydata['rain']['1h'][thisminute] = amount
+  return (ret)
+
+def lightningstats(x, number, amount):                    # Create lightning stats
+  global historydata
+  ret = dict()
+  thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  historydata['lightning']['offset'] = number
+  historydata['lightning']['hourly']['amount'] = int(historydata['lightning']['hourly']['amount']) + amount
+  historydata['lightning']['daily']['amount'] = int(historydata['lightning']['daily']['amount']) + amount
+  historydata['lightning']['weekly']['amount'] = int(historydata['lightning']['weekly']['amount']) + amount
+  historydata['lightning']['monthly']['amount'] = int(historydata['lightning']['monthly']['amount']) + amount
+  historydata.setdefault('lightning', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
+  historydata['lightning']['yearly'][x.strftime("%Y")] = int(historydata['lightning']['yearly'][x.strftime("%Y")]) + amount
+  historydata['lightning']['hourly']['last'] = str(x.timestamp())
+  historydata['lightning']['daily']['last'] = str(x.timestamp())
+  historydata['lightning']['weekly']['last'] = str(x.timestamp())
+  historydata['lightning']['monthly']['last'] = str(x.timestamp())
+  ret['1'] = int(historydata['lightning']['daily']['amount'])
+  ret['2'] = int(historydata['lightning']['event']['amount'])
+  ret['3'] = 0
+  for minute in historydata['lightning']['1h']:
+      ret['3'] = int(round(ret['3'] + float(historydata['lightning']['1h'][minute]),1))
+  ret['4'] = int(historydata['lightning']['daily']['amount'])
+  ret['5'] = int(historydata['lightning']['weekly']['amount'])
+  ret['6'] = int(historydata['lightning']['monthly']['amount'])
+  ret['7'] = int(historydata['lightning']['yearly'][x.strftime("%Y")])
+  ret['8'] = 0
+  for year in historydata['lightning']['yearly']:
+      ret['8'] = int(ret['8'] + int(historydata['lightning']['yearly'][year]))
+  thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
+  historydata.setdefault('lightning', {}).setdefault('24h', {}).setdefault(thishour,0)
+  historydata['lightning']['24h'][thishour] = historydata['lightning']['hourly']['amount']
+  ret['9'] = 0
+  for hour in historydata['lightning']['24h']:
+      ret['9'] = int(round(ret['9'] + float(historydata['lightning']['24h'][hour]),1))
+  historydata.setdefault('lightning', {}).setdefault('1h', {}).setdefault(thisminute,0)
+  historydata['lightning']['1h'][thisminute] = amount
+  return (ret)
 
 #############################################################################
 # Main Script
@@ -383,54 +462,40 @@ while True:
                 # Rain State
                 elif item == "rainstate":
                     input = message.payload.decode("utf-8")
+                    data.setdefault(item, {}).setdefault('cur_state',0)
                     if str(input) == "ON":
                         data[item]['1'] = 1
+                        data['rainstate']['cur_state'] = 1
                     else:
                         data[item]['1'] = 0
+                        data['rainstate']['cur_state'] = 0
                 # Rain Rate
                 elif item == "rainrate":
+                    data.setdefault('rainstate', {}).setdefault('cur_state',0)
                     x = datetime.datetime.now()
-                    data[item]['1'] = mmtoin(float(message.payload) * 6,3) # Rate is mm/10m, so factor 6
-                    amount = mmtoin(float(message.payload),1) # Amount in the last 10 minutes
-                    if float(data[item]['1']) >= 0.03937: # Calculate Rain Event, https://www.wetterstationsforum.info/viewtopic.php?t=241
-                        historydata['rain']['event']['amount'] = round(float(historydata['rain']['event']['amount']) + amount,1)
-                        historydata['rain']['event']['last'] = str(x.timestamp())
-                    historydata['rain']['hourly']['amount'] = round(float(historydata['rain']['hourly']['amount']) + amount,1)
-                    historydata['rain']['daily']['amount'] = round(float(historydata['rain']['daily']['amount']) + amount,1)
-                    historydata['rain']['weekly']['amount'] = round(float(historydata['rain']['weekly']['amount']) + amount,1)
-                    historydata['rain']['monthly']['amount'] = round(float(historydata['rain']['monthly']['amount']) + amount,1)
-                    historydata.setdefault('rain', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
-                    historydata['rain']['yearly'][x.strftime("%Y")] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]) + amount,1)
-                    historydata['rain']['hourly']['last'] = str(x.timestamp())
-                    historydata['rain']['daily']['last'] = str(x.timestamp())
-                    historydata['rain']['weekly']['last'] = str(x.timestamp())
-                    historydata['rain']['monthly']['last'] = str(x.timestamp())
-                    data[item]['2'] = round(float(historydata['rain']['event']['amount']),1)
-                    #data['3'] = round(float(historydata['rain']['hourly']['amount']),1)
-                    data[item]['4'] = round(float(historydata['rain']['daily']['amount']),1)
-                    data[item]['5'] = round(float(historydata['rain']['weekly']['amount']),1)
-                    data[item]['6'] = round(float(historydata['rain']['monthly']['amount']),1)
-                    data[item]['7'] = round(float(historydata['rain']['yearly'][x.strftime("%Y")]),1)
-                    data[item]['8'] = 0
-                    for year in historydata['rain']['yearly']:
-                        data[item]['8'] = round(data[item]['8'] + float(historydata['rain']['yearly'][year]),1)
-                    thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
-                    thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
-                    historydata.setdefault('rain', {}).setdefault('24h', {}).setdefault(thishour,0)
-                    historydata['rain']['24h'][thishour] = historydata['rain']['hourly']['amount']
-                    data[item]['9'] = 0
-                    for hour in historydata['rain']['24h']:
-                        data[item]['9'] = round(data[item]['9'] + float(historydata['rain']['24h'][hour]),1)
-                    historydata.setdefault('rain', {}).setdefault('1h', {}).setdefault(thisminute,0)
-                    historydata['rain']['1h'][thisminute] = amount
-                    data[item]['3'] = 0
-                    for minute in historydata['rain']['1h']:
-                        data[item]['3'] = round(data[item]['3'] + float(historydata['rain']['1h'][minute]),1)
+                    rainrate = mmtoin(float(message.payload) * 6,3) # Rate is mm/10m, so factor 6 for mm/hr
+                    amount = mmtoin(float(message.payload),3) # Amount in the last 10 minutes
+                    if float(sensors['rainstate']['calc_rr']) > 0 and float(data['rainstate']['cur_state']) > 0 and rainrate < 0.5: # Calculate rainrate from rainstate
+                        rainrate = mmtoin(float(0.5),3) # 0.5 mm/hr
+                        amount = mmtoin(float(0.083),3) # 0.5mm/h, Amount in the last 10 minutes
+                    ret = rainstats(x, rainrate, amount)
+                    data[item]['1'] = rainrate
+                    data[item]['2'] = float(ret['2'])
+                    data[item]['3'] = float(ret['3'])
+                    data[item]['4'] = float(ret['4'])
+                    data[item]['5'] = float(ret['5'])
+                    data[item]['6'] = float(ret['6'])
+                    data[item]['7'] = float(ret['7'])
+                    data[item]['8'] = float(ret['8'])
+                    data[item]['9'] = float(ret['9'])
                 # Lightning Last
                 elif item == "lightning_last":
                     try:
                         x = datetime.datetime.utcfromtimestamp(float(message.payload)) # Convert to UTC
-                        data[item]['1'] = str( int(x.timestamp()) )
+                        last =  int(x.timestamp())
+                        if last < 0:
+                            last = 0
+                        data[item]['1'] = str( last )
                     except:
                         data[item]['1'] = 0
                 # Lightning Distance
@@ -443,39 +508,17 @@ while True:
                     if number < int(historydata['lightning']['offset']): # Seems plugin was restarted
                         historydata['lightning']['offset'] = 0
                     amount = number - int(historydata['lightning']['offset'])
-                    historydata['lightning']['offset'] = number
-                    historydata['lightning']['hourly']['amount'] = int(historydata['lightning']['hourly']['amount']) + amount
-                    historydata['lightning']['daily']['amount'] = int(historydata['lightning']['daily']['amount']) + amount
-                    historydata['lightning']['weekly']['amount'] = int(historydata['lightning']['weekly']['amount']) + amount
-                    historydata['lightning']['monthly']['amount'] = int(historydata['lightning']['monthly']['amount']) + amount
-                    historydata.setdefault('lightning', {}).setdefault('yearly', {}).setdefault(x.strftime("%Y"),0)
-                    historydata['lightning']['yearly'][x.strftime("%Y")] = int(historydata['lightning']['yearly'][x.strftime("%Y")]) + amount
-                    historydata['lightning']['hourly']['last'] = str(x.timestamp())
-                    historydata['lightning']['daily']['last'] = str(x.timestamp())
-                    historydata['lightning']['weekly']['last'] = str(x.timestamp())
-                    historydata['lightning']['monthly']['last'] = str(x.timestamp())
-                    data[item]['1'] = int(historydata['lightning']['daily']['amount'])
-                    data[item]['2'] = int(historydata['lightning']['event']['amount'])
-                    #data['3'] = int(historydata['lightning']['hourly']['amount'])
-                    data[item]['4'] = int(historydata['lightning']['daily']['amount'])
-                    data[item]['5'] = int(historydata['lightning']['weekly']['amount'])
-                    data[item]['6'] = int(historydata['lightning']['monthly']['amount'])
-                    data[item]['7'] = int(historydata['lightning']['yearly'][x.strftime("%Y")])
-                    data[item]['8'] = 0
-                    for year in historydata['lightning']['yearly']:
-                        data[item]['8'] = int(data[item]['8'] + int(historydata['lightning']['yearly'][year]))
-                    thishour = str( x.strptime(x.strftime("%Y/%m/%d %H:00:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
-                    thisminute = str( x.strptime(x.strftime("%Y/%m/%d %H:%M:00"), "%Y/%m/%d %H:%M:%S").timestamp() )
-                    historydata.setdefault('lightning', {}).setdefault('24h', {}).setdefault(thishour,0)
-                    historydata['lightning']['24h'][thishour] = historydata['lightning']['hourly']['amount']
-                    data[item]['9'] = 0
-                    for hour in historydata['lightning']['24h']:
-                        data[item]['9'] = int(round(data[item]['9'] + float(historydata['lightning']['24h'][hour]),1))
-                    historydata.setdefault('lightning', {}).setdefault('1h', {}).setdefault(thisminute,0)
-                    historydata['lightning']['1h'][thisminute] = amount
-                    data[item]['3'] = 0
-                    for minute in historydata['lightning']['1h']:
-                        data[item]['3'] = int(round(data[item]['3'] + float(historydata['lightning']['1h'][minute]),1))
+                    ret = lightningstats(x, number, amount)
+                    data[item]['1'] = int(number)
+                    data[item]['2'] = int(ret['2'])
+                    data[item]['3'] = int(ret['3'])
+                    data[item]['4'] = int(ret['4'])
+                    data[item]['5'] = int(ret['5'])
+                    data[item]['6'] = int(ret['6'])
+                    data[item]['7'] = int(ret['7'])
+                    data[item]['8'] = int(ret['8'])
+                    data[item]['9'] = int(ret['9'])
+
 
                 # Save new current data
                 for val in data[item]:
@@ -488,10 +531,6 @@ while True:
                 log.debug("Stored Windspeed AVG10m Data: " + str(windspeed_avg10m))
                 log.debug("Stored Winddir AVG2m Data: " + str(winddir_avg2m))
                 log.debug("Stored Winddir AVG10m Data: " + str(winddir_avg10m))
-
-
-
-
 
     # Loop
     now = datetime.datetime.now()

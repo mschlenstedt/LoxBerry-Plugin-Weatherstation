@@ -50,9 +50,9 @@
 }
 
 .ui-collapsible .ui-btn {
-	background-color: #6dac20 !important;
+/*	background-color: #6dac20 !important;
 	color: white !important;
-	text-shadow: none !important;
+	text-shadow: none !important;*/
 	border-radius: 5px 5px 5px 5px;
 	padding: 15px;
 	padding-left: 3.5em;
@@ -212,8 +212,8 @@
 			<TMPL_VAR SENSORS.LABEL_CALC_SR>
 		</div>
 		<div class="boxitem" style="width:85%">
-			<input type="checkbox" name="illuminance_cal_sr" id="illuminance_cal_sr" data-mini="true">
-			<label for="illuminance_cal_sr"><TMPL_VAR SENSORS.LABEL_CALC_SR_CHECKBOX></label>
+			<input type="checkbox" name="illuminance_calc_sr" id="illuminance_calc_sr" data-mini="true">
+			<label for="illuminance_calc_sr"><TMPL_VAR SENSORS.LABEL_CALC_SR_CHECKBOX></label>
 		</div>
 	</div>
 </div>
@@ -494,6 +494,15 @@
 		</div>
 		<div class="boxitem" style="width:75%">
 			<input type="text" id="rainstate_topic" data-mini="true" style="font-family: monospace !important" value="input/rain">
+		</div>
+	</div>
+	<div class="boxrow">
+		<div class="boxitem small" style="width: 15%">
+			<TMPL_VAR SENSORS.LABEL_CALC_RR>
+		</div>
+		<div class="boxitem" style="width:85%">
+			<input type="checkbox" name="rainstate_calc_rr" id="rainstate_calc_rr" data-mini="true">
+			<label for="rainstate_calc_rr"><TMPL_VAR SENSORS.LABEL_CALC_RR_CHECKBOX></label>
 		</div>
 	</div>
 </div>

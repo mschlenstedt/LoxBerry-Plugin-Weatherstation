@@ -88,7 +88,17 @@
       },
       "rainstate" : {
          "topic" : "input/rain",
-         "name1" : "srain"
+         "calc_rr" : "1",
+         "name1" : "srain",
+         "name2" : "rainratein",
+         "name3" : "eventrainin",
+         "name4" : "hourlyrainin",
+         "name5" : "dailyrainin",
+         "name6" : "weeklyrainin",
+         "name7" : "monthlyrainin",
+         "name8" : "yearlyrainin",
+         "name9" : "totalrainin",
+         "name10" : "24hrainin"
       },
       "rainrate" : {
          "topic" : "sensor/rainrate",
